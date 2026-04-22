@@ -1,8 +1,8 @@
-theory leak_CR1
+theory leak
 
 begin
 // Must include one of the files in ./leak to leak
-#include "leaks/CR1.spthy"
+#include "leaks/ExpCvmCpupkSigSkCprivkAtcCmkIadToken.spthy"
 
 builtins: signing, hashing, asymmetric-encryption
 
@@ -478,7 +478,7 @@ rule Terminal_Accepts_Offline_AC:
         Eq(verify(SDAD, <nc, CID, AC, T, UN>, pubkCard), true),
         Eq(CID, 'TC'),
         Term_Receive_Offline_Reachable(Token),
-        Terminal_Accepts(transaction)
+        Terminal_Accepts_Tx(transaction)
     ]->
     [
         Send($Terminal, $Bank, ~channelID, <Token, AC, CID, AIP, CDOL1, ATC, IAD, POS_Cardholder_Info, transaction>)
@@ -737,7 +737,7 @@ restriction once:
 
 lemma TestSimultaneousAuthentication:
     "All tx #i.
-        Terminal_Accepts(tx)@i
+        Terminal_Accepts_Tx(tx)@i
             ==> not (Ex #j. Bank_Declines(tx)@j)"
 
 lemma TestCardCloningResistance: 
