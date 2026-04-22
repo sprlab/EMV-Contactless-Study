@@ -1,0 +1,2 @@
+rule Enable_Leak_Token: []--[]->[Leak_Token_Allowed()]
+

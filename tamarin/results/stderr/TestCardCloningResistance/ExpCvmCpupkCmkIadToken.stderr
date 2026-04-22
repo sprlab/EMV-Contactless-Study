@@ -1,0 +1,10 @@
+maude tool: 'maude'
+ checking version: 2.7.1. OK.
+ checking installation: OK.
+[Theory leak] Theory loaded
+[Theory leak] Theory translated
+[Theory leak] Derivation checks started
+[Theory leak] Derivation checks ended
+[Theory leak] Theory closed
+[Saturating Sources] Step 1 (Max 5)
+[Saturating Sources] Done

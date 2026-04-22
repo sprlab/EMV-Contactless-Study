@@ -1,0 +1,15 @@
+================================================================================
+SUMMARY REPORT: TestSimultaneousAuthentication
+================================================================================
+
+Lemma tested: TestSimultaneousAuthentication
+Total available leak types: 11
+Leak types: AIP, ExpDate, CVM, CardPublicKey, Sig, SessionKey, CardPrivateKey, ATC, CardMasterKey, IAD, Token
+
+Found 1 minimal cut-sets that violate the security property:
+
+  1. AIP, CVM, CardPrivateKey, ExpDate, Sig, Token
+     File: AipExpCvmSigCprivkToken.spthy
+     Leak count: 6
+
+================================================================================

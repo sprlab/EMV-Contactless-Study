@@ -1,0 +1,1053 @@
+theory leak begin
+
+// Function signature and definition of the equational theory E
+
+functions: MAC/2, adec/2, aenc/2, f/2, fst/1, h/1, pair/2, pk/1, sign/2,
+           snd/1, true/0, verify/3
+equations:
+    adec(aenc(x.1, pk(x.2)), x.2) = x.1,
+    fst(<x.1, x.2>) = x.1,
+    snd(<x.1, x.2>) = x.2,
+    verify(sign(x.1, x.2), x.1, pk(x.2)) = true
+
+
+
+
+
+rule (modulo E) Enable_Leak_AIP:
+   [ ] --> [ Leak_AIP_Allowed( ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Enable_Leak_ATC:
+   [ ] --> [ Leak_ATC_Allowed( ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Enable_Leak_CardMasterKey:
+   [ ] --> [ Leak_CardMasterKey_Allowed( ) ]
+
+  /* has exactly the trivial AC variant */
+
+
+
+
+
+
+
+rule (modulo E) Terminal_Bank_Network:
+   [ Send( S, R, channelID, msg ) ] --> [ Recv( S, R, channelID, msg ) ]
+
+  // loop breaker: [0]
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Bank_init:
+   [ Fr( ~privBank ) ]
+  --[ Once( $Bank ), Bank_initialized( pk(~privBank) ) ]->
+   [
+   !BankPubKey( $Bank, pk(~privBank) ), !BankPrivKey( $Bank, ~privBank ),
+   Card_init_start( $Bank )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Card_Profile:
+   [
+   Card_init_start( $Bank ), Fr( ~AIP ), Fr( ~CVM ), Fr( ~privCard ),
+   Fr( ~Token ), Fr( ~expDate ), !BankPrivKey( $Bank, privBank )
+   ]
+  --[ Once( <$Card, ~Token> ) ]->
+   [
+   Wallet_Card_Init_Done( $Card, $Bank, ~privCard, pk(~privCard), ~Token,
+                          ~AIP, ~CVM,
+                          <<~Token, ~expDate, ~AIP, ~CVM, pk(~privCard), $Bank>, 
+                           sign(<~Token, ~expDate, ~AIP, ~CVM, pk(~privCard), $Bank>, privBank)>,
+                          <$CVR, $additionalData>, 'MasterCard'
+   ),
+   PublicKeyToCA( pk(~privCard) )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) CA_init:
+   [ Fr( ~privkCA ), PublicKeyToCA( pubkCard ) ]
+  --[ Once( $CA ) ]->
+   [
+   !PubKeyCA( $CA, pk(~privkCA) ), !LtkCA( $CA, ~privkCA ),
+   !PublicKeySignedByCA( sign(pubkCard, ~privkCA) )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Wallet_init:
+   [
+   Wallet_Card_Init_Done( $Card, $Bank, privCard, pubkCard, Token, AIP, CVM,
+                          <<Token, expDate, AIP, CVM, pubkCard, $Bank>, sig>, IAD, AID
+   )
+   ]
+  --[ Once( <$Card, Token, AIP, CVM> ) ]->
+   [
+   Ready_for_Session_key( Token ),
+   Wallet_Init_Done( Token, privCard, pubkCard, AIP, CVM,
+                     <<Token, expDate, AIP, CVM, pubkCard, $Bank>, sig>, IAD, expDate, sig,
+                     AID
+   )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Create_Session_Key:
+   [ Ready_for_Session_key( Token ), Fr( ~CMK ), Fr( ~ATC ) ]
+  --[ Once( <$Card, Token, ~ATC, ~CMK> ) ]->
+   [
+   Session_Key_Created( Token, ~CMK, ~ATC, f(~CMK, ~ATC) ),
+   !CMK( Token, ~CMK ), !SKB( Token, f(~CMK, ~ATC) )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Wallet_Ready:
+   [
+   Wallet_Init_Done( Token, privCard, pubkCard, AIP, CVM, records, IAD,
+                     expDate, sig, AID
+   ),
+   Session_Key_Created( Token, CMK, ATC, SessionKey )
+   ]
+  --[ Once( 'Wallet Ready' ), Wallet_Ready_reachable( Token ) ]->
+   [
+   !VictimApplicationInterchangeProfile( 'V', AIP ),
+   !VictimAppTransactionCounter( 'V', ATC ),
+   !VictimCardMasterKey( 'V', CMK ), !VictimCardPrivateKey( 'V', privCard ),
+   !VictimCardPublicKey( 'V', pubkCard ),
+   !VictimCardholderVerificationMethods( 'V', CVM ),
+   !VictimExpirationDate( 'V', expDate ),
+   !VictimIssuerApplicationData( 'V', IAD ),
+   !VictimRecordsSignature( 'V', sig ), !VictimToken( 'V', Token ),
+   !VictimSessionKey( 'V', SessionKey )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Adversarial_Wallet_Ready:
+   [
+   In( AIP ), In( ATC ), In( privCard ), In( pubkCard ), In( CVM ),
+   In( expDate ), In( IAD ), In( sig ), In( Token ), In( SessionKey )
+   ]
+  --[ Once( 'Adversary Wallet' ), ADV_REACHABLE( Token ) ]->
+   [
+   !AIP( Token, AIP ), !ATC( Token, ATC ), !LtkCard( Token, privCard ),
+   !Pk( Token, pubkCard ), !CVM( Token, CVM ), !ExpDate( Token, expDate ),
+   !IAD( Token, IAD ), !Sig( Token, sig ), !Token( Token ),
+   !SKA( Token, SessionKey ),
+   !Records( Token, <<Token, expDate, AIP, CVM, pubkCard, $Bank>, sig> ),
+   !AdvWalletReadyAndTappedOnTerminal( Token, 'MasterCard' )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Terminal_Sends_GPO_Online:
+   [ !AdvWalletReadyAndTappedOnTerminal( Token, 'MasterCard' ) ]
+  -->
+   [ Out( <'GPO', 'Online', 'TRMD', 'TCC'> ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Card_Responds_To_GPO_Online:
+   [
+   In( <'GPO', 'Online', 'TRMD', 'TCC'> ),
+   !AIP( Token,
+         <CardholderVerification_Supported, TerminalRiskManagement_ToDo, 
+          CDA_Supported, EMV_Mode_Or_Magstripe_Mode>
+   )
+   ]
+  --[
+  Eq( 'Online', 'Online' ),
+  Card_returned_gpo( <CardholderVerification_Supported, 
+                      TerminalRiskManagement_ToDo, CDA_Supported, EMV_Mode_Or_Magstripe_Mode>
+  ),
+  Once( <$Card, CardholderVerification_Supported, 
+         TerminalRiskManagement_ToDo, CDA_Supported, EMV_Mode_Or_Magstripe_Mode>
+  )
+  ]->
+   [
+   !TTP( Token, 'Online' ),
+   Out( <'GPO', 
+         <CardholderVerification_Supported, TerminalRiskManagement_ToDo, 
+          CDA_Supported, EMV_Mode_Or_Magstripe_Mode>, 
+         'AFL'>
+   )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Terminal_Sends_GPO_Offline:
+   [ !AdvWalletReadyAndTappedOnTerminal( Token, 'MasterCard' ) ]
+  -->
+   [
+   Terminal_Sent_GPO( $Terminal, <'Offline', 'TRMD', 'TCC'> ),
+   Out( <'GPO', 'Offline', 'TRMD', 'TCC'> )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Card_Responds_To_GPO_Offline:
+   [ In( <'GPO', 'Offline', 'TRMD', 'TCC'> ), !AIP( Token, AIP ) ]
+  --[
+  Eq( 'Offline', 'Offline' ), Card_returned_gpo( AIP ),
+  Once( <$Card, AIP> )
+  ]->
+   [ !TTP( Token, 'Offline' ), Out( <'GPO', AIP, 'AFL'> ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Terminal_Sends_Read_Record:
+   [ Terminal_Sent_GPO( $Terminal, PDOL ), In( <'GPO', AIP, 'AFL'> ) ]
+  -->
+   [
+   Terminal_Sent_ReadRecord( $Terminal, PDOL, AIP ),
+   Out( <'ReadRecord', 'AFL'> )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Card_Responds_ReadRecord:
+   [
+   !AIP( Token, AIP ), In( <'ReadRecord', 'AFL'> ),
+   !Records( Token, records )
+   ]
+  --[ Once( <$Card, Token, AIP, records> ) ]->
+   [
+   Out( records ), Card_Responded_To_ReadRecord( records ),
+   Card_Ready_For_Cryptogram( Token )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Terminal_Receives_Records:
+   [
+   Terminal_Sent_ReadRecord( $Terminal, PDOL, AIP ),
+   In( <<Token, expDate, AIP, CVM, pubkCard, $Bank>, sig> ),
+   !BankPubKey( $Bank, pubkBank )
+   ]
+  --[
+  Eq( verify(sig, <Token, expDate, AIP, CVM, pubkCard, $Bank>, pubkBank),
+      true
+  ),
+  Read_record_done( <<Token, expDate, AIP, CVM, pubkCard, $Bank>, sig> )
+  ]->
+   [
+   Terminal_Ready_For_CVM( $Terminal,
+                           <<Token, expDate, AIP, CVM, pubkCard, $Bank>, sig>
+   )
+   ]
+
+  /*
+  rule (modulo AC) Terminal_Receives_Records:
+     [
+     Terminal_Sent_ReadRecord( $Terminal, PDOL, AIP ),
+     In( <<Token, expDate, AIP, CVM, pubkCard, $Bank>, sig> ),
+     !BankPubKey( $Bank, pubkBank )
+     ]
+    --[
+    Eq( z, true ),
+    Read_record_done( <<Token, expDate, AIP, CVM, pubkCard, $Bank>, sig> )
+    ]->
+     [
+     Terminal_Ready_For_CVM( $Terminal,
+                             <<Token, expDate, AIP, CVM, pubkCard, $Bank>, sig>
+     )
+     ]
+    variants (modulo AC)
+    1. $Bank = $Bank.12
+       AIP   = AIP.12
+       CVM   = CVM.12
+       Token = Token.12
+       expDate
+             = expDate.12
+       pubkBank
+             = pubkBank.12
+       pubkCard
+             = pubkCard.12
+       sig   = sig.12
+       z     = verify(sig.12,
+                      <Token.12, expDate.12, AIP.12, CVM.12, pubkCard.12, $Bank.12>,
+                      pubkBank.12)
+    
+    2. $Bank = $x.12
+       AIP   = x.14
+       CVM   = x.15
+       Token = x.17
+       expDate
+             = x.18
+       pubkBank
+             = pk(x.19)
+       pubkCard
+             = x.20
+       sig   = sign(<x.17, x.18, x.14, x.15, x.20, $x.12>, x.19)
+       z     = true
+  */
+
+rule (modulo E) Terminal_Processes_CVM:
+   [
+   Terminal_Ready_For_CVM( $Terminal,
+                           <<Token, expDate, AIP, CVM, pubkCard, $Bank>, sig>
+   )
+   ]
+  --[ CVM_Done( CVM ) ]->
+   [
+   Terminal_Ready_For_Cryptogram( $Terminal, CVM,
+                                  <<Token, expDate, AIP, CVM, pubkCard, $Bank>, sig>
+   )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Terminal_Sends_Online_GenerateAC:
+   [
+   Terminal_Ready_For_Cryptogram( $Terminal, CVM,
+                                  <<Token, expDate, AIP, CVM, pubkCard, $Bank>, sig>
+   )
+   ]
+  --[ Eq( 'ARQC', 'ARQC' ), Terminal_Sent_GenAC_NoCda( CVM ) ]->
+   [
+   Terminal_Stores_records( <<Token, expDate, AIP, CVM, pubkCard, $Bank>, 
+                             sig>
+   ),
+   Out( <'GENERATE_AC', <AIP, 'ARQC'>, 'TVR', CVM, 'NoCDA', 'HHMMSS', 
+         $Amount>
+   ),
+   Terminal_Sent_GenerateAC_NoCDA( $Terminal,
+                                   <'TVR', CVM, 'NoCDA', 'HHMMSS', $Amount>, <AIP, 'ARQC'>
+   )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Card_Produce_Online_AC:
+   [
+   Card_Ready_For_Cryptogram( Token ),
+   In( <'GENERATE_AC', <pAIP, 'ARQC'>, 'TVR', CVM, 'NoCDA', 'HHMMSS', 
+        $Amount>
+   ),
+   !AIP( Token, AIP ), !CVM( Token, CVM ), !ATC( Token, ATC ),
+   !TTP( Token, Terminal_Type ), !IAD( Token, IAD ),
+   !SKA( Token, SessionKey )
+   ]
+  --[
+  Eq( pAIP, AIP ), Eq( Terminal_Type, 'Online' ),
+  Once( <$Card, 
+         MAC(SessionKey,
+             <AIP, 'ARQC', <'TVR', CVM, 'NoCDA', 'HHMMSS', $Amount>, IAD, ATC>), 
+         Token, AIP, CVM, <'TVR', CVM, 'NoCDA', 'HHMMSS', $Amount>, 
+         <pAIP, 'ARQC'>, ATC, 
+         MAC(SessionKey,
+             <AIP, 'ARQC', <'TVR', CVM, 'NoCDA', 'HHMMSS', $Amount>, IAD, ATC>), 
+         IAD>
+  ),
+  Card_Returned_AC( <Token, AIP, CVM, 
+                     <'TVR', CVM, 'NoCDA', 'HHMMSS', $Amount>, <pAIP, 'ARQC'>, ATC, 
+                     MAC(SessionKey,
+                         <AIP, 'ARQC', <'TVR', CVM, 'NoCDA', 'HHMMSS', $Amount>, IAD, ATC>), 
+                     IAD>
+  )
+  ]->
+   [
+   Out( <'ARQC', 'True', Token, AIP, CVM, 
+         <'TVR', CVM, 'NoCDA', 'HHMMSS', $Amount>, <pAIP, 'ARQC'>, ATC, 
+         MAC(SessionKey,
+             <AIP, 'ARQC', <'TVR', CVM, 'NoCDA', 'HHMMSS', $Amount>, IAD, ATC>), 
+         IAD>
+   )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Terminal_Receives_Online_AC:
+   [
+   In( <CID, ODCVM_Success, Token, AIP, CVM, 
+        <'TVR', CVM, 'NoCDA', 'HHMMSS', $Amount>, <AIP, AC_Type>, ATC, AC, IAD>
+   ),
+   Terminal_Sent_GenerateAC_NoCDA( $Terminal,
+                                   <'TVR', CVM, 'NoCDA', 'HHMMSS', $Amount>, <AIP, AC_Type>
+   ),
+   Fr( ~channelID )
+   ]
+  --[
+  Eq( CID, 'ARQC' ),
+  Terminal_Send_AC_to_Bank( <Token, AIP, CVM, 
+                             <'TVR', CVM, 'NoCDA', 'HHMMSS', $Amount>, <AIP, AC_Type>, ATC, AC, IAD>
+  )
+  ]->
+   [
+   Send( $Terminal, $Bank, ~channelID,
+         <Token, AC, CID, AIP, <'TVR', CVM, 'NoCDA', 'HHMMSS', $Amount>, ATC, 
+          IAD, ODCVM_Success, Token, AIP, CVM, 
+          <'TVR', CVM, 'NoCDA', 'HHMMSS', $Amount>, <AIP, AC_Type>, ATC, AC, IAD>
+   )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Terminal_Sends_Offline_GenerateAC:
+   [
+   Terminal_Ready_For_Cryptogram( $Terminal, CVM,
+                                  <<Token, expDate, AIP, CVM, pubkCard, $Bank>, sig>
+   ),
+   Fr( ~UN )
+   ]
+  --[ Eq( 'TC', 'TC' ), Terminal_Sent_GenAC_CDA( CVM ) ]->
+   [
+   Terminal_Stores_records( <<Token, expDate, AIP, CVM, pubkCard, $Bank>, 
+                             sig>
+   ),
+   Out( <'GENERATE_AC', <~UN, AIP, 'TC'>, 'TVR', CVM, 'CDA', 'HHMMSS', 
+         $Amount>
+   ),
+   Terminal_Sent_GenerateAC_CDA( $Terminal,
+                                 <'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, <~UN, AIP, 'TC'>
+   )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Card_Produces_Offline_AC:
+   [
+   Card_Ready_For_Cryptogram( Token ),
+   In( <'GENERATE_AC', <UN, pAIP, 'TC'>, 'TVR', CVM, 'CDA', 'HHMMSS', 
+        $Amount>
+   ),
+   Fr( ~nc ), !LtkCard( Token, privCard ), !AIP( Token, AIP ),
+   !CVM( Token, CVM ), !ATC( Token, ATC ), !TTP( Token, Terminal_Type ),
+   !IAD( Token, IAD ), !SKA( Token, SessionKey )
+   ]
+  --[
+  Eq( pAIP, AIP ), Eq( Terminal_Type, 'Offline' ),
+  Card_Returned_AC( <~nc, Token, AIP, CVM, 
+                     <'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, <UN, pAIP, 'TC'>, ATC, 
+                     MAC(SessionKey,
+                         <AIP, 'TC', <'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, IAD, ATC>), 
+                     IAD, 
+                     sign(<~nc, 'TC', 
+                           MAC(SessionKey,
+                               <AIP, 'TC', <'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, IAD, ATC>), 
+                           h(<<'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, ATC, 'TC', 
+                              MAC(SessionKey,
+                                  <AIP, 'TC', <'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, IAD, ATC>), 
+                              IAD>), 
+                           UN>,
+                          privCard)
+                    >
+  ),
+  Once( <$Card, 
+         MAC(SessionKey,
+             <AIP, 'TC', <'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, IAD, ATC>), 
+         ~nc, Token, AIP, CVM, <'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, 
+         <UN, pAIP, 'TC'>, ATC, 
+         MAC(SessionKey,
+             <AIP, 'TC', <'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, IAD, ATC>), 
+         IAD, 
+         sign(<~nc, 'TC', 
+               MAC(SessionKey,
+                   <AIP, 'TC', <'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, IAD, ATC>), 
+               h(<<'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, ATC, 'TC', 
+                  MAC(SessionKey,
+                      <AIP, 'TC', <'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, IAD, ATC>), 
+                  IAD>), 
+               UN>,
+              privCard)
+        >
+  )
+  ]->
+   [
+   Out( <'TC', 'True', ~nc, Token, AIP, CVM, 
+         <'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, <UN, pAIP, 'TC'>, ATC, 
+         MAC(SessionKey,
+             <AIP, 'TC', <'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, IAD, ATC>), 
+         IAD, 
+         sign(<~nc, 'TC', 
+               MAC(SessionKey,
+                   <AIP, 'TC', <'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, IAD, ATC>), 
+               h(<<'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, ATC, 'TC', 
+                  MAC(SessionKey,
+                      <AIP, 'TC', <'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, IAD, ATC>), 
+                  IAD>), 
+               UN>,
+              privCard)
+        >
+   )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Terminal_Accepts_Offline_AC:
+   [
+   Terminal_Sent_GenerateAC_CDA( $Terminal,
+                                 <'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, <UN, AIP, AC_Type>
+   ),
+   In( <CID, ODCVM_Success, nc, Token, AIP, CVM, 
+        <'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, <UN, AIP, AC_Type>, ATC, AC, 
+        IAD, SDAD>
+   ),
+   !Pk( Token, pubkCard ), !PublicKeySignedByCA( pubkCardSigned ),
+   !PubKeyCA( $CA, pubkCA ), Fr( ~channelID )
+   ]
+  --[
+  Eq( verify(pubkCardSigned, pubkCard, pubkCA), true ),
+  Eq( verify(SDAD,
+             <nc, CID, AC, 
+              h(<<'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, ATC, CID, AC, IAD>), UN>,
+             pubkCard),
+      true
+  ),
+  Eq( CID, 'TC' ), Term_Receive_Offline_Reachable( Token ),
+  Terminal_Accepts_Tx( <nc, Token, AIP, CVM, 
+                        <'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, <UN, AIP, AC_Type>, ATC, AC, 
+                        IAD, SDAD>
+  )
+  ]->
+   [
+   Send( $Terminal, $Bank, ~channelID,
+         <Token, AC, CID, AIP, <'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, ATC, IAD, 
+          ODCVM_Success, nc, Token, AIP, CVM, 
+          <'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, <UN, AIP, AC_Type>, ATC, AC, 
+          IAD, SDAD>
+   )
+   ]
+
+  /*
+  rule (modulo AC) Terminal_Accepts_Offline_AC:
+     [
+     Terminal_Sent_GenerateAC_CDA( $Terminal,
+                                   <'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, <UN, AIP, AC_Type>
+     ),
+     In( <CID, ODCVM_Success, nc, Token, AIP, CVM, 
+          <'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, <UN, AIP, AC_Type>, ATC, AC, 
+          IAD, SDAD>
+     ),
+     !Pk( Token, pubkCard ), !PublicKeySignedByCA( pubkCardSigned ),
+     !PubKeyCA( $CA, pubkCA ), Fr( ~channelID )
+     ]
+    --[
+    Eq( z, true ), Eq( z.1, true ), Eq( CID, 'TC' ),
+    Term_Receive_Offline_Reachable( Token ),
+    Terminal_Accepts_Tx( <nc, Token, AIP, CVM, 
+                          <'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, <UN, AIP, AC_Type>, ATC, AC, 
+                          IAD, SDAD>
+    )
+    ]->
+     [
+     Send( $Terminal, $Bank, ~channelID,
+           <Token, AC, CID, AIP, <'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, ATC, IAD, 
+            ODCVM_Success, nc, Token, AIP, CVM, 
+            <'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, <UN, AIP, AC_Type>, ATC, AC, 
+            IAD, SDAD>
+     )
+     ]
+    variants (modulo AC)
+    1. $Amount
+             = $Amount.46
+       AC    = AC.51
+       ATC   = ATC.54
+       CID   = CID.55
+       CVM   = CVM.56
+       IAD   = IAD.57
+       SDAD  = SDAD.59
+       UN    = UN.61
+       nc    = nc.62
+       pubkCA
+             = pubkCA.63
+       pubkCard
+             = pubkCard.64
+       pubkCardSigned
+             = pubkCardSigned.65
+       z     = verify(pubkCardSigned.65, pubkCard.64, pubkCA.63)
+       z.1   = verify(SDAD.59,
+                      <nc.62, CID.55, AC.51, 
+                       h(<<'TVR', CVM.56, 'CDA', 'HHMMSS', $Amount.46>, ATC.54, CID.55, AC.51, 
+                          IAD.57>), 
+                       UN.61>,
+                      pubkCard.64)
+    
+    2. $Amount
+             = $Amount.105
+       AC    = AC.110
+       ATC   = ATC.113
+       CID   = CID.114
+       CVM   = CVM.115
+       IAD   = IAD.116
+       SDAD  = SDAD.118
+       UN    = UN.120
+       nc    = nc.121
+       pubkCA
+             = pk(x.208)
+       pubkCard
+             = pubkCard.123
+       pubkCardSigned
+             = sign(pubkCard.123, x.208)
+       z     = true
+       z.1   = verify(SDAD.118,
+                      <nc.121, CID.114, AC.110, 
+                       h(<<'TVR', CVM.115, 'CDA', 'HHMMSS', $Amount.105>, ATC.113, CID.114, 
+                          AC.110, IAD.116>), 
+                       UN.120>,
+                      pubkCard.123)
+    
+    3. $Amount
+             = $Amount.120
+       AC    = AC.125
+       ATC   = ATC.128
+       CID   = CID.129
+       CVM   = CVM.130
+       IAD   = IAD.131
+       SDAD  = sign(<nc.136, CID.129, AC.125, 
+                     h(<<'TVR', CVM.130, 'CDA', 'HHMMSS', $Amount.120>, ATC.128, CID.129, 
+                        AC.125, IAD.131>), 
+                     UN.135>,
+                    x.238)
+       UN    = UN.135
+       nc    = nc.136
+       pubkCA
+             = pubkCA.137
+       pubkCard
+             = pk(x.238)
+       pubkCardSigned
+             = pubkCardSigned.139
+       z     = verify(pubkCardSigned.139, pk(x.238), pubkCA.137)
+       z.1   = true
+    
+    4. $Amount
+             = $Amount.122
+       AC    = AC.127
+       ATC   = ATC.130
+       CID   = CID.131
+       CVM   = CVM.132
+       IAD   = IAD.133
+       SDAD  = sign(<nc.138, CID.131, AC.127, 
+                     h(<<'TVR', CVM.132, 'CDA', 'HHMMSS', $Amount.122>, ATC.130, CID.131, 
+                        AC.127, IAD.133>), 
+                     UN.137>,
+                    x.240)
+       UN    = UN.137
+       nc    = nc.138
+       pubkCA
+             = pk(x.242)
+       pubkCard
+             = pk(x.240)
+       pubkCardSigned
+             = sign(pk(x.240), x.242)
+       z     = true
+       z.1   = true
+  */
+
+rule (modulo E) Bank_Accepts_Online_AC:
+   [
+   !SKB( Token, SessionKey ),
+   Recv( $Terminal, $Bank, channelID,
+         <Token, AC, CID, AIP, CDOL1, ATC, IAD, POS_Cardholder_Info, Token, AIP, 
+          CVM, CDOL1, PDOL, ATC, AC, IAD>
+   )
+   ]
+  --[
+  Once( <$Bank, channelID, Token, AIP, CVM, CDOL1, PDOL, ATC, AC, IAD> ),
+  Eq( AC, MAC(SessionKey, <AIP, CID, CDOL1, IAD, ATC>) ),
+  Bank_Accepts( <Token, AIP, CVM, CDOL1, PDOL, ATC, AC, IAD> )
+  ]->
+   [
+   Send( $Bank, $Terminal, channelID,
+         <<Token, AIP, CVM, CDOL1, PDOL, ATC, AC, IAD>, 'YES'>
+   )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Bank_Declines_Online_AC:
+   [
+   !SKB( Token, SessionKey ),
+   Recv( $Terminal, $Bank, channelID,
+         <Token, AC, CID, AIP, CDOL1, ATC, IAD, POS_Cardholder_Info, Token, AIP, 
+          CVM, CDOL1, PDOL, ATC, AC, IAD>
+   )
+   ]
+  --[
+  Once( <$Bank, channelID, Token, AIP, CVM, CDOL1, PDOL, ATC, AC, IAD> ),
+  NEq( AC, MAC(SessionKey, <AIP, CID, CDOL1, IAD, ATC>) ),
+  Bank_Declines( <Token, AIP, CVM, CDOL1, PDOL, ATC, AC, IAD> )
+  ]->
+   [
+   Send( $Bank, $Terminal, channelID,
+         <<Token, AIP, CVM, CDOL1, PDOL, ATC, AC, IAD>, 'NO'>
+   )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Terminal_Accepts_Online_Transaction:
+   [
+   Recv( $Bank, $Terminal, channelID,
+         <<Token, AIP, CVM, CDOL1, PDOL, ATC, AC, IAD>, decision>
+   )
+   ]
+  --[
+  Eq( decision, 'YES' ),
+  Terminal_Accepts_Tx( <Token, AIP, CVM, CDOL1, PDOL, ATC, AC, IAD> )
+  ]->
+   [ ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Terminal_Declines_Online_Transaction:
+   [
+   Recv( $Bank, $Terminal, channelID,
+         <<Token, AIP, CVM, CDOL1, PDOL, ATC, AC, IAD>, decision>
+   )
+   ]
+  --[
+  Eq( decision, 'NO' ),
+  Terminal_Declines_Tx( <Token, AIP, CVM, CDOL1, PDOL, ATC, AC, IAD> )
+  ]->
+   [ ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Bank_Accepts_Offline_AC:
+   [
+   !SKB( Token, SessionKey ),
+   Recv( $Terminal, $Bank, channelID,
+         <Token, AC, CID, AIP, CDOL1, ATC, IAD, POS_Cardholder_Info, nc, Token, 
+          AIP, CVM, CDOL1, PDOL, ATC, AC, IAD, SDAD>
+   )
+   ]
+  --[
+  Once( <$Bank, channelID, nc, Token, AIP, CVM, CDOL1, PDOL, ATC, AC, IAD, 
+         SDAD>
+  ),
+  Eq( AC, MAC(SessionKey, <AIP, CID, CDOL1, IAD, ATC>) ),
+  Bank_Accepts( <nc, Token, AIP, CVM, CDOL1, PDOL, ATC, AC, IAD, SDAD> )
+  ]->
+   [ ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Bank_Declines_Offline_AC:
+   [
+   !SKB( Token, SessionKey ),
+   Recv( $Terminal, $Bank, channelID,
+         <Token, AC, CID, AIP, CDOL1, ATC, IAD, POS_Cardholder_Info, nc, Token, 
+          AIP, CVM, CDOL1, PDOL, ATC, AC, IAD, SDAD>
+   )
+   ]
+  --[
+  Once( <$Bank, channelID, nc, Token, AIP, CVM, CDOL1, PDOL, ATC, AC, IAD, 
+         SDAD>
+  ),
+  NEq( AC, MAC(SessionKey, <AIP, CID, CDOL1, IAD, ATC>) ),
+  Bank_Declines( <nc, Token, AIP, CVM, CDOL1, PDOL, ATC, AC, IAD, SDAD> )
+  ]->
+   [ ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Leak_AIP:
+   [ !VictimApplicationInterchangeProfile( 'V', AIP ), Leak_AIP_Allowed( ) ]
+  -->
+   [ Out( AIP ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Leak_ATC:
+   [ !VictimAppTransactionCounter( 'V', ATC ), Leak_ATC_Allowed( ) ]
+  -->
+   [ Leak_ATC( 'V', ATC ), Out( ATC ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Leak_CardMasterKey:
+   [ !VictimCardMasterKey( 'V', CMK ), Leak_CardMasterKey_Allowed( ) ]
+  -->
+   [ Leak_CMK( 'V', CMK ), Out( CMK ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Leak_CardPrivateKey:
+   [ !VictimCardPrivateKey( 'V', privCard ), Leak_CardPrivateKey_Allowed( )
+   ]
+  -->
+   [ Out( privCard ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Leak_CardPublicKey:
+   [ !VictimCardPublicKey( 'V', pubkCard ), Leak_CardPublicKey_Allowed( ) ]
+  -->
+   [ Out( pubkCard ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Leak_CVM:
+   [ !VictimCardholderVerificationMethods( 'V', CVM ), Leak_CVM_Allowed( ) ]
+  -->
+   [ Out( CVM ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Leak_ExpDate:
+   [ !VictimExpirationDate( 'V', expDate ), Leak_ExpDate_Allowed( ) ]
+  -->
+   [ Out( expDate ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Leak_IAD:
+   [ !VictimIssuerApplicationData( 'V', IAD ), Leak_IAD_Allowed( ) ]
+  -->
+   [ Out( IAD ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Leak_Sig:
+   [ !VictimRecordsSignature( 'V', sig ), Leak_Sig_Allowed( ) ]
+  -->
+   [ Out( sig ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Leak_Token:
+   [ !VictimToken( 'V', Token ), Leak_Token_Allowed( ) ]
+  -->
+   [ Out( Token ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Leak_SessionKey:
+   [ !VictimSessionKey( 'V', SessionKey ), Leak_SessionKey_Allowed( ) ]
+  -->
+   [ Out( SessionKey ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Send_Fresh_SessionKey_Both_Leaked:
+   [ In( ATC ), In( CMK ) ] --> [ Out( f(CMK, ATC) ) ]
+
+  /* has exactly the trivial AC variant */
+
+restriction equal:
+  "∀ a b #i. (Eq( a, b ) @ #i) ⇒ (a = b)"
+  // safety formula
+
+restriction not_equal:
+  "∀ a #i. (NEq( a, a ) @ #i) ⇒ (⊥)"
+  // safety formula
+
+restriction once:
+  "∀ a #i #j. ((Once( a ) @ #i) ∧ (Once( a ) @ #j)) ⇒ (#i = #j)"
+  // safety formula
+
+lemma TestSimultaneousAuthentication:
+  all-traces
+  "∀ tx #i.
+    (Terminal_Accepts_Tx( tx ) @ #i) ⇒ (¬(∃ #j. Bank_Declines( tx ) @ #j))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ tx #i.
+  (Terminal_Accepts_Tx( tx ) @ #i) ∧ ∃ #j. (Bank_Declines( tx ) @ #j)"
+*/
+simplify
+solve( Terminal_Accepts_Tx( tx ) @ #i )
+  case Terminal_Accepts_Offline_AC
+  solve( Terminal_Sent_GenerateAC_CDA( $Terminal,
+                                       <'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, <UN, AIP, AC_Type>
+         ) ▶₀ #i )
+    case Terminal_Sends_Offline_GenerateAC
+    solve( !Pk( Token, pk(x) ) ▶₂ #i )
+      case Adversarial_Wallet_Ready
+      solve( !PublicKeySignedByCA( sign(pk(x), x.1) ) ▶₃ #i )
+        case CA_init
+        solve( !PubKeyCA( $CA, pk(~privkCA) ) ▶₄ #i )
+          case CA_init
+          solve( Bank_Declines( <nc, Token, AIP, CVM, 
+                                 <'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, <~UN, AIP, 'TC'>, ATC, AC, IAD, 
+                                 sign(<nc, 'TC', AC, 
+                                       h(<<'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, ATC, 'TC', AC, IAD>), ~UN>,
+                                      ~privCard)
+                                >
+                 ) @ #j )
+            case Bank_Declines_Offline_AC
+            solve( !SKB( Token, SessionKey ) ▶₀ #j )
+              case Create_Session_Key
+              solve( Recv( $Terminal.1, $Bank.1, channelID.1,
+                           <~Token, AC, CID, AIP, <'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, ATC, IAD, 
+                            POS_Cardholder_Info, nc, ~Token, AIP, CVM, 
+                            <'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, <~UN, AIP, 'TC'>, ATC, AC, IAD, 
+                            sign(<nc, 'TC', AC, 
+                                  h(<<'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, ATC, 'TC', AC, IAD>), ~UN>,
+                                 ~privCard)
+                           >
+                     ) ▶₁ #j )
+                case Terminal_Bank_Network
+                by solve( !KU( ~Token ) @ #vk.13 )
+              qed
+            qed
+          next
+            case Bank_Declines_Online_AC
+            solve( !SKB( nc, SessionKey ) ▶₀ #j )
+              case Create_Session_Key
+              solve( Recv( $Terminal.1, $Bank.1, channelID.1,
+                           <~Token, ATC, CID, Token.1, CVM, <~UN, AIP, 'TC'>, 
+                            <AC, IAD, 
+                             sign(<~Token, 'TC', AC, 
+                                   h(<<'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, ATC, 'TC', AC, IAD>), ~UN>,
+                                  ~privCard)
+                            >, 
+                            POS_Cardholder_Info, ~Token, Token.1, AIP, CVM, 
+                            <'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, <~UN, AIP, 'TC'>, ATC, AC, IAD, 
+                            sign(<~Token, 'TC', AC, 
+                                  h(<<'TVR', CVM, 'CDA', 'HHMMSS', $Amount>, ATC, 'TC', AC, IAD>), ~UN>,
+                                 ~privCard)
+                           >
+                     ) ▶₁ #j )
+                case Terminal_Bank_Network
+                by solve( !KU( ~Token ) @ #vk.12 )
+              qed
+            qed
+          qed
+        qed
+      qed
+    qed
+  qed
+next
+  case Terminal_Accepts_Online_Transaction
+  solve( Recv( $Bank, $Terminal, channelID,
+               <<Token, AIP, CVM, CDOL1, PDOL, ATC, AC, IAD>, 'YES'>
+         ) ▶₀ #i )
+    case Terminal_Bank_Network
+    solve( Bank_Declines( <Token, AIP, CVM, CDOL1, PDOL, ATC, AC, IAD>
+           ) @ #j )
+      case Bank_Declines_Offline_AC
+      solve( !SKB( AIP, SessionKey ) ▶₀ #j )
+        case Create_Session_Key
+        solve( Recv( $Terminal.1, $Bank.1, channelID.1,
+                     <~Token.1, AC.1, CID, CVM, PDOL, AC, IAD, POS_Cardholder_Info, Token, 
+                      ~Token.1, CVM, CDOL1, PDOL, ATC, AC, AC.1, IAD, SDAD>
+               ) ▶₁ #j )
+          case Terminal_Bank_Network
+          solve( Send( $Bank, $Terminal, channelID,
+                       <<Token, ~Token.1, CVM, CDOL1, PDOL, ATC, AC, AC.1, IAD, SDAD>, 'YES'>
+                 ) ▶₀ #vr )
+            case Bank_Accepts_Online_AC
+            by solve( Send( $Terminal.1, $Bank.1, channelID.1,
+                            <~Token.1, AC, CID.1, CVM, PDOL, 
+                             MAC(f(~CMK, ~ATC.1), <~Token.1, CID, CDOL1, <AC, IAD, SDAD>, ATC>), IAD, 
+                             POS_Cardholder_Info, ~Token, ~Token.1, CVM, CDOL1, PDOL, ATC, 
+                             MAC(f(~CMK, ~ATC.1), <~Token.1, CID, CDOL1, <AC, IAD, SDAD>, ATC>), AC, 
+                             IAD, SDAD>
+                      ) ▶₀ #vr.5 )
+          qed
+        qed
+      qed
+    next
+      case Bank_Declines_Online_AC
+      solve( !SKB( Token, SessionKey ) ▶₀ #j )
+        case Create_Session_Key
+        solve( Recv( $Terminal.1, $Bank.1, channelID.1,
+                     <~Token, AC, CID, AIP, CDOL1, ATC, IAD, POS_Cardholder_Info, ~Token, 
+                      AIP, CVM, CDOL1, PDOL, ATC, AC, IAD>
+               ) ▶₁ #j )
+          case Terminal_Bank_Network
+          solve( Send( $Bank, $Terminal, channelID,
+                       <<~Token, AIP, CVM, CDOL1, PDOL, ATC, AC, IAD>, 'YES'>
+                 ) ▶₀ #vr )
+            case Bank_Accepts_Online_AC
+            solve( Send( $Terminal.1, $Bank.1, channelID.1,
+                         <~Token, MAC(f(~CMK, ~ATC.1), <AIP, CID, CDOL1, IAD, ATC>), CID.1, AIP, 
+                          CDOL1, ATC, IAD, POS_Cardholder_Info, ~Token, AIP, CVM, CDOL1, PDOL, 
+                          ATC, MAC(f(~CMK, ~ATC.1), <AIP, CID, CDOL1, IAD, ATC>), IAD>
+                   ) ▶₀ #vr.5 )
+              case Terminal_Receives_Online_AC
+              by solve( !KU( ~Token ) @ #vk.7 )
+            qed
+          qed
+        qed
+      qed
+    qed
+  qed
+qed
+
+lemma TestCardCloningResistance:
+  all-traces "¬(∃ tx #i. Terminal_Accepts_Tx( tx ) @ #i)"
+/*
+guarded formula characterizing all counter-examples:
+"∃ tx #i. (Terminal_Accepts_Tx( tx ) @ #i)"
+*/
+by sorry
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+WARNING: the following wellformedness checks failed!
+
+Facts occur in the left-hand-side but not in any right-hand-side 
+=================================================================
+
+  1. in rule "Leak_CardPrivateKey":  factName `Leak_CardPrivateKey_Allowed' arity: 0 multiplicity: Linear
+  
+  2. in rule "Leak_CardPublicKey":  factName `Leak_CardPublicKey_Allowed' arity: 0 multiplicity: Linear
+  
+  3. in rule "Leak_CVM":  factName `Leak_CVM_Allowed' arity: 0 multiplicity: Linear. Perhaps you want to use the fact in rule "Enable_Leak_AIP":  factName `Leak_AIP_Allowed' arity: 0 multiplicity: Linear
+  
+  4. in rule "Leak_ExpDate":  factName `Leak_ExpDate_Allowed' arity: 0 multiplicity: Linear
+  
+  5. in rule "Leak_IAD":  factName `Leak_IAD_Allowed' arity: 0 multiplicity: Linear. Perhaps you want to use the fact in rule "Enable_Leak_AIP":  factName `Leak_AIP_Allowed' arity: 0 multiplicity: Linear
+  
+  6. in rule "Leak_Sig":  factName `Leak_Sig_Allowed' arity: 0 multiplicity: Linear. Perhaps you want to use the fact in rule "Enable_Leak_AIP":  factName `Leak_AIP_Allowed' arity: 0 multiplicity: Linear
+  
+  7. in rule "Leak_Token":  factName `Leak_Token_Allowed' arity: 0 multiplicity: Linear
+  
+  8. in rule "Leak_SessionKey":  factName `Leak_SessionKey_Allowed' arity: 0 multiplicity: Linear
+*/
+
+/*
+Generated from:
+Tamarin version 1.10.0
+Maude version 2.7.1
+Git revision: UNKNOWN, branch: UNKNOWN
+Compiled at: 2024-10-30 13:42:18.081591 UTC
+*/
+
+end
+
+==============================================================================
+summary of summaries:
+
+analyzed: main.spthy
+
+  processing time: 12.71s
+  
+  WARNING: 1 wellformedness check failed!
+           The analysis results might be wrong!
+  
+  TestSimultaneousAuthentication (all-traces): verified (24 steps)
+  TestCardCloningResistance (all-traces): analysis incomplete (1 steps)
+
+==============================================================================

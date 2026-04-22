@@ -1,0 +1,2 @@
+rule Enable_Leak_CardMasterKey: []--[]->[Leak_CardMasterKey_Allowed()]
+

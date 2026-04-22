@@ -1,0 +1,8 @@
+rule Enable_Leak_CVM: []--[]->[Leak_CVM_Allowed()]
+
+rule Enable_Leak_ATC: []--[]->[Leak_ATC_Allowed()]
+
+rule Enable_Leak_IAD: []--[]->[Leak_IAD_Allowed()]
+
+rule Enable_Leak_Token: []--[]->[Leak_Token_Allowed()]
+

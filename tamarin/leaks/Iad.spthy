@@ -1,0 +1,2 @@
+rule Enable_Leak_IAD: []--[]->[Leak_IAD_Allowed()]
+

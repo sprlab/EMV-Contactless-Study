@@ -1,0 +1,6 @@
+rule Enable_Leak_ExpDate: []--[]->[Leak_ExpDate_Allowed()]
+
+rule Enable_Leak_Sig: []--[]->[Leak_Sig_Allowed()]
+
+rule Enable_Leak_IAD: []--[]->[Leak_IAD_Allowed()]
+

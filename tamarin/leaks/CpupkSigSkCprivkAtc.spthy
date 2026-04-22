@@ -1,0 +1,10 @@
+rule Enable_Leak_CardPublicKey: []--[]->[Leak_CardPublicKey_Allowed()]
+
+rule Enable_Leak_Sig: []--[]->[Leak_Sig_Allowed()]
+
+rule Enable_Leak_SessionKey: []--[]->[Leak_SessionKey_Allowed()]
+
+rule Enable_Leak_CardPrivateKey: []--[]->[Leak_CardPrivateKey_Allowed()]
+
+rule Enable_Leak_ATC: []--[]->[Leak_ATC_Allowed()]
+

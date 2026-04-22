@@ -1,0 +1,8 @@
+rule Enable_Leak_Sig: []--[]->[Leak_Sig_Allowed()]
+
+rule Enable_Leak_ATC: []--[]->[Leak_ATC_Allowed()]
+
+rule Enable_Leak_CardMasterKey: []--[]->[Leak_CardMasterKey_Allowed()]
+
+rule Enable_Leak_IAD: []--[]->[Leak_IAD_Allowed()]
+

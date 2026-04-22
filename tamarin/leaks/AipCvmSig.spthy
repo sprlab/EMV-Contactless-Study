@@ -1,0 +1,6 @@
+rule Enable_Leak_AIP: []--[]->[Leak_AIP_Allowed()]
+
+rule Enable_Leak_CVM: []--[]->[Leak_CVM_Allowed()]
+
+rule Enable_Leak_Sig: []--[]->[Leak_Sig_Allowed()]
+

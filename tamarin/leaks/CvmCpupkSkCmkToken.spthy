@@ -1,0 +1,10 @@
+rule Enable_Leak_CVM: []--[]->[Leak_CVM_Allowed()]
+
+rule Enable_Leak_CardPublicKey: []--[]->[Leak_CardPublicKey_Allowed()]
+
+rule Enable_Leak_SessionKey: []--[]->[Leak_SessionKey_Allowed()]
+
+rule Enable_Leak_CardMasterKey: []--[]->[Leak_CardMasterKey_Allowed()]
+
+rule Enable_Leak_Token: []--[]->[Leak_Token_Allowed()]
+

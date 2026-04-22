@@ -1,0 +1,12 @@
+rule Enable_Leak_ExpDate: []--[]->[Leak_ExpDate_Allowed()]
+
+rule Enable_Leak_CVM: []--[]->[Leak_CVM_Allowed()]
+
+rule Enable_Leak_CardPublicKey: []--[]->[Leak_CardPublicKey_Allowed()]
+
+rule Enable_Leak_SessionKey: []--[]->[Leak_SessionKey_Allowed()]
+
+rule Enable_Leak_CardPrivateKey: []--[]->[Leak_CardPrivateKey_Allowed()]
+
+rule Enable_Leak_ATC: []--[]->[Leak_ATC_Allowed()]
+

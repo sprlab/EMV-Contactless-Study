@@ -1,0 +1,23 @@
+================================================================================
+SUMMARY REPORT: TestCardCloningResistance
+================================================================================
+
+Lemma tested: TestCardCloningResistance
+Total available leak types: 11
+Leak types: AIP, ExpDate, CVM, CardPublicKey, Sig, SessionKey, CardPrivateKey, ATC, CardMasterKey, IAD, Token
+
+Found 3 minimal cut-sets that violate the security property:
+
+  1. AIP, CVM, CardPrivateKey, ExpDate, Sig, Token
+     File: AipExpCvmSigCprivkToken.spthy
+     Leak count: 6
+
+  2. AIP, CVM, CardPublicKey, ExpDate, SessionKey, Sig, Token
+     File: AipExpCvmCpupkSigSkToken.spthy
+     Leak count: 7
+
+  3. AIP, ATC, CVM, CardMasterKey, CardPublicKey, ExpDate, Sig, Token
+     File: AipExpCvmCpupkSigAtcCmkToken.spthy
+     Leak count: 8
+
+================================================================================

@@ -1,0 +1,8 @@
+rule Enable_Leak_CVM: []--[]->[Leak_CVM_Allowed()]
+
+rule Enable_Leak_SessionKey: []--[]->[Leak_SessionKey_Allowed()]
+
+rule Enable_Leak_CardMasterKey: []--[]->[Leak_CardMasterKey_Allowed()]
+
+rule Enable_Leak_IAD: []--[]->[Leak_IAD_Allowed()]
+

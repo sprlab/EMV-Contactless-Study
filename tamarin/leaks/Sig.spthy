@@ -1,0 +1,2 @@
+rule Enable_Leak_Sig: []--[]->[Leak_Sig_Allowed()]
+

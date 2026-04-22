@@ -1,0 +1,4 @@
+rule Enable_Leak_CardPublicKey: []--[]->[Leak_CardPublicKey_Allowed()]
+
+rule Enable_Leak_CardPrivateKey: []--[]->[Leak_CardPrivateKey_Allowed()]
+

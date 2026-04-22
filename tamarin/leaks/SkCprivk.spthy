@@ -1,0 +1,4 @@
+rule Enable_Leak_SessionKey: []--[]->[Leak_SessionKey_Allowed()]
+
+rule Enable_Leak_CardPrivateKey: []--[]->[Leak_CardPrivateKey_Allowed()]
+

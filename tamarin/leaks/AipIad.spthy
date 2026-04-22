@@ -1,0 +1,4 @@
+rule Enable_Leak_AIP: []--[]->[Leak_AIP_Allowed()]
+
+rule Enable_Leak_IAD: []--[]->[Leak_IAD_Allowed()]
+
